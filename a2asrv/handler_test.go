@@ -2007,6 +2007,10 @@ func TestRequestHandler_GetTaskPushConfig(t *testing.T) {
 	config1 := &a2a.PushConfig{ID: "config-1", URL: "https://example.com/push1"}
 	ps := testutil.NewTestPushConfigStore().WithConfigs(t, taskID, config1)
 	pn := testutil.NewTestPushSender(t)
+	nilConfigStore := testutil.NewTestPushConfigStore()
+	nilConfigStore.GetFunc = func(context.Context, a2a.TaskID, string) (*a2a.PushConfig, error) {
+		return nil, nil
+	}
 
 	testCases := []struct {
 		name    string
@@ -2030,6 +2034,24 @@ func TestRequestHandler_GetTaskPushConfig(t *testing.T) {
 			wantErr: push.ErrPushConfigNotFound,
 			options: []RequestHandlerOption{
 				WithPushNotifications(ps, pn),
+				withTestTask(t, taskID),
+			},
+		},
+		{
+			name:    "non-existent config is a task not found error",
+			req:     &a2a.GetTaskPushConfigRequest{TaskID: taskID, ID: "non-existent"},
+			wantErr: a2a.ErrTaskNotFound,
+			options: []RequestHandlerOption{
+				WithPushNotifications(ps, pn),
+				withTestTask(t, taskID),
+			},
+		},
+		{
+			name:    "store returns no config",
+			req:     &a2a.GetTaskPushConfigRequest{TaskID: taskID, ID: config1.ID},
+			wantErr: a2a.ErrTaskNotFound,
+			options: []RequestHandlerOption{
+				WithPushNotifications(nilConfigStore, pn),
 				withTestTask(t, taskID),
 			},
 		},
